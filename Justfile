@@ -7,7 +7,10 @@ version := "0.0.0"
 @run +args="":
 	cargo run --release -- {{args}}
 
-@macos:
+@build:
+	cargo build --release
+
+@macos: build
 	icns icon.png icon.icns
 	rm -rf dist/{{name}}.app
 	rm -rf dist/{{name}}_v{{version}}_mac.tar.gz

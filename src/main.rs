@@ -3,11 +3,14 @@
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::SystemTime;
+use std::collections::VecDeque;
 
 use dirty::*;
 use dirty::math::*;
 use dirty::app::*;
 use input::Key;
+
+const LOG_SIZE: usize = 4;
 
 #[derive(Clone, Copy, Debug)]
 enum MsgType {
@@ -80,23 +83,21 @@ impl File {
 struct Viewer {
 	file: Option<File>,
 	shader: Option<gfx::Shader2D<GeneralUniform>>,
-	log: Vec<Msg>,
+	log: VecDeque<Msg>,
 	show_log: bool,
 }
 
 #[derive(Clone)]
 struct GeneralUniform {
 	resolution: Vec2,
-	mouse: Vec2,
 	time: f32,
 }
 
 impl gfx::Uniform for GeneralUniform {
 	fn values(&self) -> gfx::UniformValues {
 		return hmap![
-			"resolution" => &self.resolution,
-			"mouse" => &self.mouse,
-			"time" => &self.time,
+			"u_resolution" => &self.resolution,
+			"u_time" => &self.time,
 		];
 	}
 }
@@ -112,12 +113,16 @@ impl Viewer {
 			MsgType::Failure => eprintln!("{}", s(&msg.content).red()),
 		}
 
-		self.log.push(msg);
+		self.log.push_back(msg);
 		self.show_log = true;
+
+		if self.log.len() > LOG_SIZE {
+			self.log.pop_front();
+		}
 
 	}
 
-	fn refresh(&mut self, ctx: &Ctx) {
+	fn refresh(&mut self, ctx: &mut Ctx) {
 
 		let path = match &self.file {
 			Some(file) => &file.path,
@@ -140,6 +145,7 @@ impl Viewer {
 					.file_name()
 					.unwrap_or(std::ffi::OsStr::new("unknown file"));
 
+				ctx.set_title(&format!("{:?}", fname));
 				self.shader = Some(shader);
 				self.log(Msg::success(&format!("{:?} loaded", fname)));
 
@@ -151,7 +157,7 @@ impl Viewer {
 
 	}
 
-	fn open(&mut self, ctx: &Ctx, path: impl AsRef<Path>) {
+	fn open(&mut self, ctx: &mut Ctx, path: impl AsRef<Path>) {
 
 		self.file = Some(File::new(path));
 		self.refresh(ctx);
@@ -167,7 +173,7 @@ impl app::State for Viewer {
 		let mut viewer = Self {
 			file: None,
 			shader: None,
-			log: vec![],
+			log: vecd![],
 			show_log: false,
 		};
 
@@ -233,7 +239,6 @@ impl app::State for Viewer {
 			ctx.draw_2d_with(&shader, &GeneralUniform {
 				resolution: vec2!(ctx.width(), ctx.height()),
 				time: ctx.time().into(),
-				mouse: ctx.mouse_pos().normalize(),
 			}, |ctx| {
 				ctx.draw(
 					&shapes::rect(
@@ -256,13 +261,17 @@ impl app::State for Viewer {
 
 			let mut y = 0.0;
 
-			for msg in self.log
+			for (i, msg) in self.log
 				.iter()
-				.rev() {
+				.rev()
+				.enumerate() {
+
+				let to = (i as f32).map(0.0, LOG_SIZE as f32, 1.0, 0.0);
+				let bo = (i as f32).map(0.0, LOG_SIZE as f32, 0.7, 0.0);
 
 				let color = match msg.ty {
-					MsgType::Success => rgba!(0, 1, 0, 1),
-					MsgType::Failure => rgba!(1, 0, 0, 1),
+					MsgType::Success => rgba!(0, 1, 0, to),
+					MsgType::Failure => rgba!(1, 0, 0, bo),
 				};
 
 				let padding = 8.0;
@@ -279,7 +288,7 @@ impl app::State for Viewer {
 
 				ctx.draw(
 					&shapes::rect(pos, pos + vec2!(width, th))
-						.fill(rgba!(0, 0, 0, 0.6))
+						.fill(rgba!(0, 0, 0, bo))
 				)?;
 
 				ctx.draw_t(
