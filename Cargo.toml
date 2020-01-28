@@ -1,0 +1,11 @@
+# wengwengweng
+
+[package]
+name = "glslview"
+version = "0.0.0"
+authors = ["tga <tga@wengwengweng.me>"]
+edition = "2018"
+
+[dependencies]
+dirty = { path = "../DIRTY" }
+
