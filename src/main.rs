@@ -151,17 +151,34 @@ impl Viewer {
 
 	}
 
+	fn open(&mut self, ctx: &Ctx, path: impl AsRef<Path>) {
+
+		self.file = Some(File::new(path));
+		self.refresh(ctx);
+
+	}
+
 }
 
 impl app::State for Viewer {
 
 	fn init(ctx: &mut app::Ctx) -> Result<Self> {
-		return Ok(Self {
+
+		let mut viewer = Self {
 			file: None,
 			shader: None,
 			log: vec![],
 			show_log: false,
-		});
+		};
+
+		let args = std::env::args().collect::<Vec<String>>();
+
+		if let Some(path) = args.get(1) {
+			viewer.open(ctx, path);
+		}
+
+		return Ok(viewer);
+
 	}
 
 	fn event(&mut self, ctx: &mut app::Ctx, e: &input::Event) -> Result<()> {
@@ -169,22 +186,27 @@ impl app::State for Viewer {
 		use input::Event::*;
 
 		match e {
-			FileDrop(path) => {
-				self.file = Some(File::new(path));
-				self.refresh(ctx);
-			}
+
+			FileDrop(path) => self.open(ctx, path),
+
 			KeyPress(k) => {
+
 				let mods = ctx.key_mods();
+
 				match *k {
 					Key::Esc => ctx.quit(),
 					Key::R => self.refresh(ctx),
 					Key::L => self.show_log = !self.show_log,
+					Key::C if self.show_log => self.log.clear(),
 					Key::Q if mods.meta => ctx.quit(),
 					Key::F if mods.meta => ctx.toggle_fullscreen(),
 					_ => {},
 				}
+
 			},
+
 			_ => {},
+
 		}
 
 		return Ok(());
