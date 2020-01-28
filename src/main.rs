@@ -91,12 +91,14 @@ struct Viewer {
 struct GeneralUniform {
 	resolution: Vec2,
 	time: f32,
+	mouse: Vec2,
 }
 
 impl gfx::Uniform for GeneralUniform {
 	fn values(&self) -> gfx::UniformValues {
 		return hmap![
 			"u_resolution" => &self.resolution,
+			"u_mouse" => &self.mouse,
 			"u_time" => &self.time,
 		];
 	}
@@ -180,7 +182,9 @@ impl app::State for Viewer {
 		let args = std::env::args().collect::<Vec<String>>();
 
 		if let Some(path) = args.get(1) {
-			viewer.open(ctx, path);
+			if fs::exists(path) {
+				viewer.open(ctx, path);
+			}
 		}
 
 		return Ok(viewer);
@@ -238,6 +242,7 @@ impl app::State for Viewer {
 		if let Some(shader) = &self.shader {
 			ctx.draw_2d_with(&shader, &GeneralUniform {
 				resolution: vec2!(ctx.width(), ctx.height()),
+				mouse: ctx.mouse_pos().normalize(),
 				time: ctx.time().into(),
 			}, |ctx| {
 				ctx.draw(
@@ -266,7 +271,7 @@ impl app::State for Viewer {
 				.rev()
 				.enumerate() {
 
-				let to = (i as f32).map(0.0, LOG_SIZE as f32, 1.0, 0.0);
+				let to = (i as f32).map(0.0, LOG_SIZE as f32, 1.0, 0.3);
 				let bo = (i as f32).map(0.0, LOG_SIZE as f32, 0.7, 0.0);
 
 				let color = match msg.ty {
