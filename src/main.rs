@@ -225,7 +225,7 @@ impl app::State for Viewer {
 			ctx.draw_t(
 				mat4!()
 					.t2(ctx.coord(Origin::TopLeft) + vec2!(24, -24)),
-				&shapes::text("drop .frag files into this window")
+				&shapes::text("drop fragment shader files into this window")
 					.align(gfx::Origin::TopLeft)
 			)?;
 		}

@@ -7,15 +7,15 @@ version := "0.0.0"
 @run +args="":
 	cargo run --release -- {{args}}
 
-# @macos:
-# 	icns icon.png icon.icns
-# 	rm -rf dist/{{name}}.app
-# 	rm -rf dist/{{name}}_v{{version}}_mac.tar.gz
-# 	upx target/release/{{name}} -o {{name}}
-# 	packapp {{name}} --name {{name}} --resources sprites --icon icon.icns -o dist/{{name}}.app
-# 	tar czf dist/{{name}}_v{{version}}_mac.tar.gz dist/{{name}}.app
-# 	rm {{name}}
-# 	rm icon.icns
+@macos:
+	icns icon.png icon.icns
+	rm -rf dist/{{name}}.app
+	rm -rf dist/{{name}}_v{{version}}_mac.tar.gz
+	upx target/release/{{name}} -o {{name}}
+	packapp {{name}} --name {{name}} --icon icon.icns -o dist/{{name}}.app
+	tar czf dist/{{name}}_v{{version}}_mac.tar.gz dist/{{name}}.app
+	rm {{name}}
+	rm icon.icns
 
 @doc crate:
 	cargo doc --no-deps --open -p {{crate}}
