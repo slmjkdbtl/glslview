@@ -6,8 +6,7 @@ use std::time::SystemTime;
 use std::collections::VecDeque;
 
 use dirty::*;
-use dirty::math::*;
-use dirty::app::*;
+use math::*;
 use input::Key;
 
 const LOG_SIZE: usize = 4;
@@ -168,9 +167,11 @@ impl Viewer {
 
 }
 
-impl app::State for Viewer {
+impl State for Viewer {
 
-	fn init(ctx: &mut app::Ctx) -> Result<Self> {
+	fn init(ctx: &mut Ctx) -> Result<Self> {
+
+		ctx.set_cursor(window::CursorIcon::Crosshair);
 
 		let mut viewer = Self {
 			file: None,
@@ -191,7 +192,7 @@ impl app::State for Viewer {
 
 	}
 
-	fn event(&mut self, ctx: &mut app::Ctx, e: &input::Event) -> Result<()> {
+	fn event(&mut self, ctx: &mut Ctx, e: &input::Event) -> Result<()> {
 
 		use input::Event::*;
 
@@ -223,7 +224,7 @@ impl app::State for Viewer {
 
 	}
 
-	fn update(&mut self, ctx: &mut app::Ctx) -> Result<()> {
+	fn update(&mut self, ctx: &mut Ctx) -> Result<()> {
 
 		if let Some(file) = &mut self.file {
 			if file.check_modified() {
@@ -235,14 +236,14 @@ impl app::State for Viewer {
 
 	}
 
-	fn draw(&mut self, ctx: &mut app::Ctx) -> Result<()> {
+	fn draw(&mut self, ctx: &mut Ctx) -> Result<()> {
 
 		use gfx::Origin;
 
 		if let Some(shader) = &self.shader {
 			ctx.draw_2d_with(&shader, &GeneralUniform {
-				resolution: vec2!(ctx.width(), ctx.height()),
-				mouse: ctx.mouse_pos().normalize(),
+				resolution: vec2!(ctx.width(), ctx.height()) * ctx.dpi(),
+				mouse: ctx.mouse_pos() / vec2!(ctx.width(), ctx.height()),
 				time: ctx.time().into(),
 			}, |ctx| {
 				ctx.draw(
@@ -285,8 +286,11 @@ impl app::State for Viewer {
 				let text = shapes::text(&msg.content)
 					.align(Origin::BottomLeft)
 					.color(color)
-					.wrap(width - padding * 2.0, false)
-					.render(ctx);
+					.wrap(shapes::TextWrap {
+						width: width - padding * 2.0,
+						break_type: shapes::TextWrapBreak::Word,
+					})
+					.format(ctx);
 
 				let th = text.height();
 				let pos = ctx.coord(Origin::BottomLeft) + vec2!(0, y);
@@ -316,7 +320,7 @@ impl app::State for Viewer {
 
 fn main() {
 
-	if let Err(err) = app::launcher()
+	if let Err(err) = launcher()
 		.resizable(true)
 		.run::<Viewer>() {
 		println!("{}", err);
