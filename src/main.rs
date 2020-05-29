@@ -2,11 +2,13 @@
 
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Duration;
 use std::time::SystemTime;
 use std::collections::VecDeque;
 
 use dirty::*;
 use math::*;
+use gfx::*;
 use input::Key;
 
 const LOG_SIZE: usize = 4;
@@ -81,7 +83,7 @@ impl File {
 
 struct Viewer {
 	file: Option<File>,
-	shader: Option<gfx::Shader2D<GeneralUniform>>,
+	shader: Option<Shader<GeneralUniform>>,
 	log: VecDeque<Msg>,
 	show_log: bool,
 }
@@ -89,12 +91,12 @@ struct Viewer {
 #[derive(Clone)]
 struct GeneralUniform {
 	resolution: Vec2,
-	time: f32,
+	time: Duration,
 	mouse: Vec2,
 }
 
-impl gfx::Uniform for GeneralUniform {
-	fn values(&self) -> gfx::UniformValues {
+impl CustomUniform for GeneralUniform {
+	fn values(&self) -> UniformValues {
 		return hmap![
 			"u_resolution" => &self.resolution,
 			"u_mouse" => &self.mouse,
@@ -123,7 +125,7 @@ impl Viewer {
 
 	}
 
-	fn refresh(&mut self, ctx: &mut Ctx) {
+	fn refresh(&mut self, d: &mut Ctx) {
 
 		let path = match &self.file {
 			Some(file) => &file.path,
@@ -138,7 +140,7 @@ impl Viewer {
 			},
 		};
 
-		match gfx::Shader2D::from_frag(ctx, &content) {
+		match Shader::from_frag(d.gfx, &content) {
 
 			Ok(shader) => {
 
@@ -146,7 +148,7 @@ impl Viewer {
 					.file_name()
 					.unwrap_or(std::ffi::OsStr::new("unknown file"));
 
-				ctx.set_title(&format!("{:?}", fname));
+				d.window.set_title(&format!("{:?}", fname));
 				self.shader = Some(shader);
 				self.log(Msg::success(&format!("{:?} loaded", fname)));
 
@@ -158,10 +160,10 @@ impl Viewer {
 
 	}
 
-	fn open(&mut self, ctx: &mut Ctx, path: impl AsRef<Path>) {
+	fn open(&mut self, d: &mut Ctx, path: impl AsRef<Path>) {
 
 		self.file = Some(File::new(path));
-		self.refresh(ctx);
+		self.refresh(d);
 
 	}
 
@@ -169,9 +171,9 @@ impl Viewer {
 
 impl State for Viewer {
 
-	fn init(ctx: &mut Ctx) -> Result<Self> {
+	fn init(d: &mut Ctx) -> Result<Self> {
 
-		ctx.set_cursor(window::CursorIcon::Crosshair);
+		d.window.set_cursor(window::CursorIcon::Cross);
 
 		let mut viewer = Self {
 			file: None,
@@ -184,7 +186,7 @@ impl State for Viewer {
 
 		if let Some(path) = args.get(1) {
 			if fs::exists(path) {
-				viewer.open(ctx, path);
+				viewer.open(d, path);
 			}
 		}
 
@@ -192,25 +194,25 @@ impl State for Viewer {
 
 	}
 
-	fn event(&mut self, ctx: &mut Ctx, e: &input::Event) -> Result<()> {
+	fn event(&mut self, d: &mut Ctx, e: &input::Event) -> Result<()> {
 
 		use input::Event::*;
 
 		match e {
 
-			FileDrop(path) => self.open(ctx, path),
+			FileDrop(path) => self.open(d, path),
 
 			KeyPress(k) => {
 
-				let mods = ctx.key_mods();
+				let mods = d.window.key_mods();
 
 				match *k {
-					Key::Esc => ctx.quit(),
-					Key::R => self.refresh(ctx),
+					Key::Esc => d.window.quit(),
+					Key::R => self.refresh(d),
 					Key::L => self.show_log = !self.show_log,
 					Key::C if self.show_log => self.log.clear(),
-					Key::Q if mods.meta => ctx.quit(),
-					Key::F if mods.meta => ctx.toggle_fullscreen(),
+					Key::Q if mods.meta => d.window.quit(),
+					Key::F if mods.meta => d.window.toggle_fullscreen(),
 					_ => {},
 				}
 
@@ -224,11 +226,11 @@ impl State for Viewer {
 
 	}
 
-	fn update(&mut self, ctx: &mut Ctx) -> Result<()> {
+	fn update(&mut self, d: &mut Ctx) -> Result<()> {
 
 		if let Some(file) = &mut self.file {
 			if file.check_modified() {
-				self.refresh(ctx);
+				self.refresh(d);
 			}
 		}
 
@@ -236,30 +238,30 @@ impl State for Viewer {
 
 	}
 
-	fn draw(&mut self, ctx: &mut Ctx) -> Result<()> {
-
-		use gfx::Origin;
+	fn draw(&mut self, d: &mut Ctx) -> Result<()> {
 
 		if let Some(shader) = &self.shader {
-			ctx.draw_2d_with(&shader, &GeneralUniform {
-				resolution: vec2!(ctx.width(), ctx.height()) * ctx.dpi(),
-				mouse: ctx.mouse_pos() / vec2!(ctx.width(), ctx.height()),
-				time: ctx.time().into(),
-			}, |ctx| {
-				ctx.draw(
-					&shapes::rect(
-						ctx.coord(Origin::TopLeft),
-						ctx.coord(Origin::BottomRight),
+			d.gfx.draw_with(&shader, &GeneralUniform {
+				resolution: vec2!(d.gfx.width(), d.gfx.height()) * d.gfx.dpi(),
+				mouse: d.window.mouse_pos() / vec2!(d.gfx.width(), d.gfx.height()),
+				time: d.app.time(),
+			}, |gfx| {
+				gfx.draw(
+					&shapes::uvrect(
+						gfx.coord(Origin::TopLeft),
+						gfx.coord(Origin::BottomRight),
 					)
 				)?;
 				return Ok(());
 			})?;
 		} else {
-			ctx.draw_t(
+			d.gfx.draw_t(
 				mat4!()
-					.t2(ctx.coord(Origin::TopLeft) + vec2!(24, -24)),
+					.t2(d.gfx.coord(Origin::TopLeft) + vec2!(24, -24))
+					,
 				&shapes::text("drop fragment shader files into this window")
-					.align(gfx::Origin::TopLeft)
+					.size(12.0)
+					.align(Origin::TopLeft)
 			)?;
 		}
 
@@ -281,7 +283,7 @@ impl State for Viewer {
 				};
 
 				let padding = 8.0;
-				let width = ctx.width() as f32;
+				let width = d.gfx.width() as f32;
 
 				let text = shapes::text(&msg.content)
 					.align(Origin::BottomLeft)
@@ -290,17 +292,17 @@ impl State for Viewer {
 						width: width - padding * 2.0,
 						break_type: shapes::TextWrapBreak::Word,
 					})
-					.format(ctx);
+					.format(d.gfx);
 
 				let th = text.height();
-				let pos = ctx.coord(Origin::BottomLeft) + vec2!(0, y);
+				let pos = d.gfx.coord(Origin::BottomLeft) + vec2!(0, y);
 
-				ctx.draw(
+				d.gfx.draw(
 					&shapes::rect(pos, pos + vec2!(width, th))
 						.fill(rgba!(0, 0, 0, bo))
 				)?;
 
-				ctx.draw_t(
+				d.gfx.draw_t(
 					mat4!()
 						.t2(pos),
 					&text
@@ -319,12 +321,10 @@ impl State for Viewer {
 }
 
 fn main() {
-
 	if let Err(err) = launcher()
 		.resizable(true)
 		.run::<Viewer>() {
-		println!("{}", err);
+		elog!("{}", err);
 	}
-
 }
 

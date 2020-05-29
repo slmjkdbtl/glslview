@@ -3,7 +3,8 @@
 [package]
 name = "glslview"
 version = "0.0.0"
-authors = ["tga <tga@wengwengweng.me>"]
+authors = ["tga <tga@enemyspy.xyz>"]
+repository = "https://git.sr.ht/~slmjkdbtl/glslview"
 edition = "2018"
 
 [dependencies]
