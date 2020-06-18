@@ -6,6 +6,11 @@ version := "0.0.0"
 run +args="":
 	cargo run --release -- {{args}}
 
+install:
+	cargo install \
+		--force \
+		--path .
+
 macos:
 	icns icon.png icon.icns
 	rm -rf dist/{{name}}.app
