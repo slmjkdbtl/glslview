@@ -9,7 +9,7 @@ use std::collections::VecDeque;
 use dirty::*;
 use math::*;
 use gfx::*;
-use input::Key;
+use input::*;
 
 const LOG_SIZE: usize = 4;
 
@@ -95,12 +95,12 @@ struct GeneralUniform {
 	mouse: Vec2,
 }
 
-impl CustomUniform for GeneralUniform {
+impl UniformLayout for GeneralUniform {
 	fn values(&self) -> UniformValues {
-		return hmap![
-			"u_resolution" => &self.resolution,
-			"u_mouse" => &self.mouse,
-			"u_time" => &self.time,
+		return vec![
+			("u_resolution", &self.resolution),
+			("u_mouse", &self.mouse),
+			("u_time", &self.time),
 		];
 	}
 }
@@ -194,15 +194,13 @@ impl State for Viewer {
 
 	}
 
-	fn event(&mut self, d: &mut Ctx, e: &input::Event) -> Result<()> {
-
-		use input::Event::*;
+	fn event(&mut self, d: &mut Ctx, e: &Event) -> Result<()> {
 
 		match e {
 
-			FileDrop(path) => self.open(d, path),
+			Event::FileDrop(path) => self.open(d, path),
 
-			KeyPress(k) => {
+			Event::KeyPress(k) => {
 
 				let mods = d.window.key_mods();
 
@@ -238,7 +236,7 @@ impl State for Viewer {
 
 	}
 
-	fn draw(&mut self, d: &mut Ctx) -> Result<()> {
+	fn draw(&self, d: &mut Ctx) -> Result<()> {
 
 		if let Some(shader) = &self.shader {
 			d.gfx.draw_with(&shader, &GeneralUniform {
